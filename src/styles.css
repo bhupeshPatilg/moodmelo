@@ -282,7 +282,7 @@ img {
 .mood-page-shell .custom-player-shell {
   position: fixed;
   left: 50%;
-  bottom: 62px;
+  bottom: 110px;
   transform: translateX(-50%);
   width: min(1120px, calc(100vw - 22px));
   z-index: 10;
