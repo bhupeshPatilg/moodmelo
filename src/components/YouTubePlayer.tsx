@@ -1,12 +1,14 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import type { Song } from "../types/music";
+import { useYouTubePlayer } from "../hooks/useYouTubePlayer";
 
 interface YouTubePlayerProps {
-  audioUrl?: string;
+  videoId?: string;
   title?: string;
   fallbackArtwork?: string;
   songs?: Song[];
   activeSongId?: string;
+  autoplayRequested?: boolean;
   isPlaying?: boolean;
   onSongSelect?: (song: Song) => void;
   onPrev?: () => void;
@@ -14,29 +16,18 @@ interface YouTubePlayerProps {
   onReady?: () => void;
   onPlay?: () => void;
   onPause?: () => void;
+  onAutoplayBlocked?: () => void;
   onEnded?: () => void;
   className?: string;
 }
 
-const formatTime = (value: number) => {
-  if (!Number.isFinite(value) || value < 0) {
-    return "0:00";
-  }
-
-  const minutes = Math.floor(value / 60);
-  const seconds = Math.floor(value % 60)
-    .toString()
-    .padStart(2, "0");
-
-  return `${minutes}:${seconds}`;
-};
-
 const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
-  audioUrl,
+  videoId,
   title = "MoodMelo music player",
   fallbackArtwork,
   songs = [],
   activeSongId,
+  autoplayRequested = false,
   isPlaying = false,
   onSongSelect,
   onPrev,
@@ -44,78 +35,44 @@ const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   onReady,
   onPlay,
   onPause,
+  onAutoplayBlocked,
   onEnded,
   className = "",
 }) => {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [isReady, setIsReady] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(0.8);
   const [isPlaylistOpen, setIsPlaylistOpen] = useState(false);
-
-  const activeSong = useMemo(
-    () => songs.find((song) => song.id === activeSongId) ?? songs[0] ?? null,
-    [activeSongId, songs]
-  );
+  const activeSong = songs.find((song) => song.id === activeSongId) ?? null;
+  const activeVideoId = activeSong?.youtubeId ?? videoId;
+  const { player, ready } = useYouTubePlayer(activeVideoId, {
+    onReady,
+    onEnded,
+    onPlay,
+    onPause,
+    onAutoplayBlocked,
+  }, autoplayRequested);
 
   useEffect(() => {
-    if (!audioRef.current) {
+    if (!player || !ready) {
       return;
     }
 
-    const audio = audioRef.current;
-    audio.volume = volume;
+    if (isPlaying || autoplayRequested) {
+      player.playVideo();
+    } else {
+      player.pauseVideo();
+    }
+  }, [autoplayRequested, isPlaying, player, ready]);
+
+  const togglePlay = () => {
+    if (!player || !ready) {
+      return;
+    }
 
     if (isPlaying) {
-      audio.play().catch(() => {
-        // Browsers block autoplay until user interaction, so we ignore the promise.
-      });
+      player.pauseVideo();
+      onPause?.();
     } else {
-      audio.pause();
+      player.playVideo();
     }
-  }, [isPlaying, volume]);
-
-  useEffect(() => {
-    const audio = audioRef.current;
-
-    if (!audio || !audioUrl) {
-      setCurrentTime(0);
-      setDuration(0);
-      setIsReady(false);
-      return;
-    }
-
-    setCurrentTime(0);
-    setDuration(0);
-    setIsReady(false);
-    audio.pause();
-    audio.load();
-  }, [audioUrl]);
-
-  const togglePlay = async () => {
-    const audio = audioRef.current;
-
-    if (!audio || !audioUrl) {
-      return;
-    }
-
-    if (audio.paused) {
-      await audio.play();
-      onPlay?.();
-      return;
-    }
-
-    audio.pause();
-    onPause?.();
-  };
-
-  const handleSeek = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const nextTime = Number(event.target.value);
-    if (audioRef.current) {
-      audioRef.current.currentTime = nextTime;
-    }
-    setCurrentTime(nextTime);
   };
 
   const handleSongPick = (song: Song) => {
@@ -123,7 +80,7 @@ const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
     setIsPlaylistOpen(false);
   };
 
-  if (!audioUrl) {
+  if (!activeVideoId) {
     return (
       <div className={`custom-player-shell ${className}`}>
         <div className="custom-player custom-player--inactive" aria-label="Inactive music player">
@@ -137,7 +94,7 @@ const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   const artwork = activeSong?.thumbnail ?? fallbackArtwork;
 
   return (
-    <div className={`custom-player-shell ${className}`} aria-label="Audio music player">
+    <div className={`custom-player-shell ${className}`} aria-label="YouTube music player">
       {isPlaylistOpen && songs.length > 0 && (
         <div className="playlist-panel playlist-panel--open" aria-label="Recommended songs">
           <div className="playlist-panel__header">Recommended Songs</div>
@@ -158,35 +115,9 @@ const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
         </div>
       )}
 
-      <div className="custom-player">
-        <audio
-          ref={audioRef}
-          preload="metadata"
-          title={title}
-          onCanPlay={() => {
-            setIsReady(true);
-            onReady?.();
-          }}
-          onPlay={onPlay}
-          onPause={onPause}
-          onTimeUpdate={(event) => {
-            const audioElement = event.currentTarget;
-            setCurrentTime(audioElement.currentTime);
-            setDuration(audioElement.duration || 0);
-          }}
-          onLoadedMetadata={(event) => {
-            const audioElement = event.currentTarget;
-            setDuration(audioElement.duration || 0);
-          }}
-          onEnded={() => {
-            setCurrentTime(0);
-            onEnded?.();
-          }}
-          src={audioUrl}
-        >
-          <source src={audioUrl} type="audio/mpeg" />
-        </audio>
+      <div id="youtube-player" className="custom-player__video" />
 
+      <div className="custom-player">
         <div className="custom-player__main">
           <div className="custom-player__artwork" aria-hidden="true">
             {artwork ? (
@@ -219,6 +150,7 @@ const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
               className="control-button control-button--primary"
               onClick={togglePlay}
               aria-label={isPlaying ? "Pause" : "Play"}
+              disabled={!ready}
             >
               {isPlaying ? "❚❚" : "▶"}
             </button>
@@ -246,19 +178,6 @@ const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
           </button>
         </div>
 
-        <div className="custom-player__timeline">
-          <span>{formatTime(currentTime)}</span>
-          <input
-            type="range"
-            min={0}
-            max={duration || 0}
-            step={0.1}
-            value={Math.min(currentTime, duration || currentTime)}
-            onChange={handleSeek}
-            aria-label="Track progress"
-          />
-          <span>{formatTime(duration)}</span>
-        </div>
       </div>
     </div>
   );

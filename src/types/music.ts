@@ -5,7 +5,6 @@ export interface Song {
   thumbnail?: string;
   duration?: string;
   mood?: string;
-  audioUrl?: string;
   youtubeId?: string;
   youtubeUrl?: string;
 }
@@ -16,5 +15,4 @@ export interface Mood {
   icon: string;
   description: string;
   background: string;
-  songs: Song[];
 }

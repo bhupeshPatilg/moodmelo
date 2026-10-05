@@ -1,51 +1,45 @@
-import { useMemo, useState } from "react";
 import YouTubePlayer from "../components/YouTubePlayer";
+import SongList from "../components/SongList";
 import type { Mood, Song } from "../types/music";
 
 interface MoodPageProps {
   mood: Mood;
+  songs: Song[];
+  selectedSongId: string | null;
+  autoplayRequested: boolean;
+  isPlaying: boolean;
+  isLoading: boolean;
+  loadError: "not-configured" | "request-failed" | null;
   onBack: () => void;
+  onRetry: () => void;
+  onSongSelect: (song: Song) => void;
+  onPrev: () => void;
+  onNext: () => void;
+  onPlay: () => void;
+  onPause: () => void;
+  onAutoplayBlocked: () => void;
+  onEnded: () => void;
 }
 
-export default function MoodPage({ mood, onBack }: MoodPageProps) {
-  const [activeSongId, setActiveSongId] = useState<string | null>(
-    mood.songs[0]?.id ?? null
-  );
-  const [isPlaying, setIsPlaying] = useState(false);
-
-  const activeSong = useMemo(
-    () => mood.songs.find((song) => song.id === activeSongId) ?? mood.songs[0] ?? null,
-    [activeSongId, mood]
-  );
-
-  const handleSongSelect = (song: Song) => {
-    setActiveSongId(song.id);
-    setIsPlaying(true);
-  };
-
-  const handlePrevious = () => {
-    if (!mood.songs.length) return;
-
-    const currentIndex = mood.songs.findIndex((song) => song.id === activeSongId);
-    const nextIndex = currentIndex <= 0 ? mood.songs.length - 1 : currentIndex - 1;
-    const song = mood.songs[nextIndex];
-    if (song) {
-      setActiveSongId(song.id);
-      setIsPlaying(true);
-    }
-  };
-
-  const handleNext = () => {
-    if (!mood.songs.length) return;
-
-    const currentIndex = mood.songs.findIndex((song) => song.id === activeSongId);
-    const nextIndex = currentIndex === -1 || currentIndex === mood.songs.length - 1 ? 0 : currentIndex + 1;
-    const song = mood.songs[nextIndex];
-    if (song) {
-      setActiveSongId(song.id);
-      setIsPlaying(true);
-    }
-  };
+export default function MoodPage({
+  mood,
+  songs,
+  selectedSongId,
+  autoplayRequested,
+  isPlaying,
+  isLoading,
+  loadError,
+  onBack,
+  onRetry,
+  onSongSelect,
+  onPrev,
+  onNext,
+  onPlay,
+  onPause,
+  onAutoplayBlocked,
+  onEnded,
+}: MoodPageProps) {
+  const activeSong = songs.find((song) => song.id === selectedSongId) ?? null;
 
   return (
     <main className="player-page mood-page-shell">
@@ -62,19 +56,55 @@ export default function MoodPage({ mood, onBack }: MoodPageProps) {
             backgroundImage: `linear-gradient(180deg, rgba(6, 10, 18, 0.38), rgba(6, 10, 18, 0.7)), url("${mood.background}")`,
           }}
         >
+          <div className="mood-page__songs" aria-live="polite">
+            {isLoading ? (
+              <div className="loading-state" role="status">
+                Loading songs...
+              </div>
+            ) : loadError ? (
+              <div className="empty-state" role="alert">
+                <p>
+                  {loadError === "not-configured"
+                    ? "Playlist not configured yet."
+                    : "Unable to load songs for this mood."}
+                </p>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={onRetry}
+                >
+                  Retry
+                </button>
+              </div>
+            ) : songs.length > 0 ? (
+              <SongList
+                songs={songs}
+                activeSongId={selectedSongId ?? undefined}
+                isPlaying={isPlaying}
+                onSongSelect={onSongSelect}
+              />
+            ) : (
+              <div className="empty-state">
+                No songs available for this mood yet.
+              </div>
+            )}
+          </div>
+
           <YouTubePlayer
-            audioUrl={activeSong?.audioUrl}
+            videoId={activeSong?.youtubeId}
             fallbackArtwork={mood.background}
             title={activeSong ? `${activeSong.title} by ${activeSong.artist ?? "MoodMelo"}` : "Select a song"}
-            songs={mood.songs}
+            songs={songs}
             activeSongId={activeSong?.id}
+            autoplayRequested={autoplayRequested}
             isPlaying={isPlaying}
-            onSongSelect={handleSongSelect}
-            onPrev={handlePrevious}
-            onNext={handleNext}
-            onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
-            onEnded={() => setIsPlaying(false)}
+            onSongSelect={onSongSelect}
+            onPrev={onPrev}
+            onNext={onNext}
+            onPlay={onPlay}
+            onPause={onPause}
+            onAutoplayBlocked={onAutoplayBlocked}
+            onEnded={onEnded}
           />
         </div>
       </div>

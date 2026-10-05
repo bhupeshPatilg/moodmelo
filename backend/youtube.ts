@@ -39,7 +39,7 @@ export async function getPlaylistSongs(
       const snippet = item.snippet;
       const thumbnails = snippet?.thumbnails;
       songs.push({
-        id: item.id ?? youtubeId,
+        id: youtubeId,
         youtubeId,
         youtubeUrl: `https://www.youtube.com/watch?v=${encodeURIComponent(youtubeId)}`,
         title: snippet?.title ?? "Unknown title",

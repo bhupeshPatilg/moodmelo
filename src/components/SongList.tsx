@@ -1,4 +1,5 @@
 import type { Song } from "../types/music";
+import SongItem from "./SongItem";
 
 interface Props {
   songs: Song[];
@@ -25,35 +26,16 @@ export default function SongList({
       </div>
 
       <div className="song-list">
-        {songs.map((song, index) => {
-          const active = activeSongId === song.id;
-
-          return (
-            <button
-              key={song.id}
-              type="button"
-              className={`song-row ${active ? "playing" : ""}`}
-              onClick={() => onSongSelect(song)}
-            >
-              <div className="song-number">
-                {active && isPlaying ? (
-                  <span aria-hidden="true">▮▮</span>
-                ) : (
-                  String(index + 1).padStart(2, "0")
-                )}
-              </div>
-
-              <div className="song-info">
-                <strong>{song.title}</strong>
-                <span>{song.artist}</span>
-              </div>
-
-              <div className="song-play" aria-hidden="true">
-                {active && isPlaying ? "⏸" : "▶"}
-              </div>
-            </button>
-          );
-        })}
+        {songs.map((song, index) => (
+          <SongItem
+            key={song.id}
+            song={song}
+            index={index + 1}
+            isActive={activeSongId === song.id}
+            isPlaying={isPlaying}
+            onSelect={onSongSelect}
+          />
+        ))}
       </div>
     </section>
   );
