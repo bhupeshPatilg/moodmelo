@@ -318,6 +318,8 @@ img {
   .player-page__card {
     padding: 0 14px 14px;
     min-height: 100vh;
+    background-size: auto 100%;
+    background-position: center center;
   }
 
   .player-page__content h2 {
@@ -326,7 +328,7 @@ img {
 
   .mood-page-shell .custom-player-shell {
     width: min(100vw - 16px, 1120px);
-    bottom: 12px;
+    bottom: 42px;
   }
 }
 
