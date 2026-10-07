@@ -4,6 +4,7 @@ import MoodPage from "./pages/MoodPage";
 import { moods } from "./data/moods";
 import { fetchMoodSongs, MoodApiError } from "./services/moodApi";
 import type { Mood, Song } from "./types/music";
+import YouTubePlayerProvider from "./components/YouTubePlayerProvider";
 
 const App: React.FC = () => {
   const [selectedMoodId, setSelectedMoodId] = useState<string | null>(null);
@@ -132,33 +133,44 @@ const App: React.FC = () => {
     }
   };
 
-  if (selectedMood) {
-    return (
-      <MoodPage
-        mood={selectedMood}
-        songs={songs}
-        selectedSongId={selectedSongId}
-        autoplayRequested={autoplaySongId === selectedSongId && selectedSongId !== null}
-        isPlaying={isPlaying}
-        isLoading={isLoading}
-        loadError={loadError}
-        onBack={goHome}
-        onRetry={() => setRetryCount((count) => count + 1)}
-        onSongSelect={selectSong}
-        onPrev={() => moveSong(-1)}
-        onNext={() => moveSong(1)}
-        onPlay={handlePlay}
-        onPause={handlePause}
-        onAutoplayBlocked={() => {
-          setAutoplaySongId(null);
-          setIsPlaying(false);
-        }}
-        onEnded={() => setIsPlaying(false)}
-      />
-    );
-  }
+  const activeSong = songs.find((song) => song.id === selectedSongId) ?? null;
+  const autoplayRequested = autoplaySongId === selectedSongId && selectedSongId !== null;
 
-  return <HomePage onSelectMood={goToMood} />;
+  return (
+    <YouTubePlayerProvider
+      videoId={activeSong?.youtubeId}
+      autoplayRequested={autoplayRequested}
+      onReady={() => setIsPlaying(false)}
+      onPlay={handlePlay}
+      onPause={handlePause}
+      onAutoplayBlocked={() => {
+        setAutoplaySongId(null);
+        setIsPlaying(false);
+      }}
+      onEnded={() => setIsPlaying(false)}
+      onError={() => setIsPlaying(false)}
+    >
+      {selectedMood ? (
+        <MoodPage
+          mood={selectedMood}
+          songs={songs}
+          selectedSongId={selectedSongId}
+          isPlaying={isPlaying}
+          isLoading={isLoading}
+          loadError={loadError}
+          onBack={goHome}
+          onRetry={() => setRetryCount((count) => count + 1)}
+          onSongSelect={selectSong}
+          onPrev={() => moveSong(-1)}
+          onNext={() => moveSong(1)}
+          onPlay={handlePlay}
+          onPause={handlePause}
+        />
+      ) : (
+        <HomePage onSelectMood={goToMood} />
+      )}
+    </YouTubePlayerProvider>
+  );
 };
 
 export default App;
