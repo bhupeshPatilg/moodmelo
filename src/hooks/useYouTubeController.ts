@@ -126,6 +126,7 @@ export function useYouTubeController(
   const playerRef = useRef<YT.Player | null>(null);
   const progressIntervalRef = useRef<number | null>(null);
   const pendingVideoIdRef = useRef<string | undefined>(videoId);
+  const previousVideoIdRef = useRef<string | undefined>(videoId);
   const autoplayRequestedRef = useRef(autoplayRequested);
   const callbacksRef = useRef(options);
   const [state, setState] = useState<YouTubeControllerState>({
@@ -199,20 +200,37 @@ export function useYouTubeController(
   useEffect(() => {
     let cancelled = false;
 
-    if (!hostRef.current) {
+    if (!hostRef.current || !videoId) {
+      if (!videoId) {
+        playerRef.current?.destroy();
+        playerRef.current = null;
+        resetProgress();
+      }
       return;
     }
 
+    if (playerRef.current && previousVideoIdRef.current !== videoId) {
+      playerRef.current.destroy();
+      playerRef.current = null;
+    }
+
+    if (playerRef.current) {
+      return;
+    }
+
+    previousVideoIdRef.current = videoId;
+    resetProgress();
+
     void loadYouTubeIframeApi()
       .then(() => {
-        if (cancelled || playerRef.current || !hostRef.current) {
+        if (cancelled || !hostRef.current) {
           return;
         }
 
         const player = new window.YT!.Player(hostRef.current, {
           width: 1,
           height: 1,
-          videoId: pendingVideoIdRef.current,
+          videoId,
           playerVars: {
             autoplay: 0,
             enablejsapi: 1,
@@ -232,13 +250,9 @@ export function useYouTubeController(
                 playbackState: "unstarted",
               }));
 
-              const pendingVideoId = pendingVideoIdRef.current;
-              if (pendingVideoId) {
-                event.target.loadVideoById(pendingVideoId);
-              }
-
+              event.target.loadVideoById(videoId);
               callbacksRef.current.onReady?.();
-              if (autoplayRequestedRef.current && pendingVideoId) {
+              if (autoplayRequestedRef.current) {
                 event.target.playVideo();
               }
             },
@@ -299,27 +313,7 @@ export function useYouTubeController(
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  useEffect(() => {
-    if (!playerRef.current || !videoId) {
-      if (!videoId) {
-        playerRef.current?.stopVideo();
-        resetProgress();
-      }
-      return;
-    }
-
-    if (playerRef.current.getPlayerState() === window.YT!.PlayerState.UNSTARTED) {
-      playerRef.current.loadVideoById(videoId);
-    } else {
-      playerRef.current.loadVideoById(videoId);
-    }
-
-    if (autoplayRequested) {
-      playerRef.current.playVideo();
-    }
-  }, [autoplayRequested, resetProgress, videoId]);
+  }, [resetProgress, videoId]);
 
   useEffect(() => {
     if (!playerRef.current || state.playbackState !== "playing") {
@@ -360,7 +354,6 @@ export function useYouTubeController(
       if (progressIntervalRef.current !== null) {
         window.clearInterval(progressIntervalRef.current);
       }
-      playerRef.current?.destroy();
       playerRef.current = null;
     };
   }, []);
