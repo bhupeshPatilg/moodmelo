@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import HomePage from "./pages/HomePage";
 import MoodPage from "./pages/MoodPage";
 import { moods } from "./data/moods";
@@ -15,6 +15,8 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<"not-configured" | "request-failed" | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [isShuffleEnabled, setIsShuffleEnabled] = useState(false);
+  const lastEndedSongIdRef = useRef<string | null>(null);
 
   const selectedMood = useMemo(
     () => moods.find((mood) => mood.id === selectedMoodId) ?? null,
@@ -23,6 +25,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!selectedMoodId) {
+      lastEndedSongIdRef.current = null;
       setSongs([]);
       setSelectedSongId(null);
       setAutoplaySongId(null);
@@ -33,6 +36,7 @@ const App: React.FC = () => {
     }
 
     const controller = new AbortController();
+    lastEndedSongIdRef.current = null;
     setSongs([]);
     setSelectedSongId(null);
     setAutoplaySongId(null);
@@ -101,13 +105,17 @@ const App: React.FC = () => {
     }
   };
 
-  const selectSong = (song: Song) => {
+  const selectSong = (song: Song, resetEndedSong = true) => {
+    if (resetEndedSong) {
+      lastEndedSongIdRef.current = null;
+    }
     setSelectedSongId(song.id);
     setAutoplaySongId(song.id);
     setIsPlaying(false);
   };
 
   const handlePlay = () => {
+    lastEndedSongIdRef.current = null;
     setAutoplaySongId(null);
     setIsPlaying(true);
   };
@@ -117,19 +125,39 @@ const App: React.FC = () => {
     setIsPlaying(false);
   };
 
-  const moveSong = (direction: -1 | 1) => {
+  const moveSong = (direction: -1 | 1, resetEndedSong = true) => {
     if (songs.length === 0) {
       return;
     }
 
     const currentIndex = songs.findIndex((song) => song.id === selectedSongId);
-    const nextIndex =
-      currentIndex === -1
-        ? 0
-        : (currentIndex + direction + songs.length) % songs.length;
-    const nextSong = songs[nextIndex];
+    let nextSong: Song | undefined;
+
+    if (direction === 1 && isShuffleEnabled && songs.length > 1) {
+      const alternatives = songs.filter((song) => song.id !== selectedSongId);
+      nextSong = alternatives[Math.floor(Math.random() * alternatives.length)];
+    } else {
+      const nextIndex =
+        currentIndex === -1
+          ? 0
+          : (currentIndex + direction + songs.length) % songs.length;
+      nextSong = songs[nextIndex];
+    }
+
     if (nextSong) {
-      selectSong(nextSong);
+      selectSong(nextSong, resetEndedSong);
+    }
+  };
+
+  const handleSongEnded = () => {
+    if (!selectedSongId || lastEndedSongIdRef.current === selectedSongId) {
+      return;
+    }
+
+    lastEndedSongIdRef.current = selectedSongId;
+    setIsPlaying(false);
+    if (songs.length > 1) {
+      moveSong(1, false);
     }
   };
 
@@ -147,7 +175,7 @@ const App: React.FC = () => {
         setAutoplaySongId(null);
         setIsPlaying(false);
       }}
-      onEnded={() => setIsPlaying(false)}
+      onEnded={handleSongEnded}
       onError={() => setIsPlaying(false)}
     >
       {selectedMood ? (
@@ -156,6 +184,8 @@ const App: React.FC = () => {
           songs={songs}
           selectedSongId={selectedSongId}
           isPlaying={isPlaying}
+          isShuffleEnabled={isShuffleEnabled}
+          onShuffleToggle={() => setIsShuffleEnabled((enabled) => !enabled)}
           isLoading={isLoading}
           loadError={loadError}
           onBack={goHome}

@@ -6,6 +6,8 @@ interface MoodPageProps {
   songs: Song[];
   selectedSongId: string | null;
   isPlaying: boolean;
+  isShuffleEnabled: boolean;
+  onShuffleToggle: () => void;
   isLoading: boolean;
   loadError: "not-configured" | "request-failed" | null;
   onBack: () => void;
@@ -22,6 +24,8 @@ export default function MoodPage({
   songs,
   selectedSongId,
   isPlaying,
+  isShuffleEnabled,
+  onShuffleToggle,
   isLoading,
   loadError,
   onBack,
@@ -75,11 +79,14 @@ export default function MoodPage({
           )}
 
           <MoodPlayer
+            key={mood.id}
             fallbackArtwork={mood.background}
             title={activeSong ? `${activeSong.title} by ${activeSong.artist ?? "MoodMelo"}` : "Select a song"}
             songs={songs}
             activeSongId={activeSong?.id}
             isPlaying={isPlaying}
+            isShuffleEnabled={isShuffleEnabled}
+            onShuffleToggle={onShuffleToggle}
             onSongSelect={onSongSelect}
             onPrev={onPrev}
             onNext={onNext}
